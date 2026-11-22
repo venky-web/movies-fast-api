@@ -1,0 +1,242 @@
+[
+  {
+    "id": "m-last-lighthouse",
+    "title": "The Last Lighthouse",
+    "genres": [
+      "Drama",
+      "Thriller"
+    ],
+    "durationMins": 118,
+    "rating": 7.9,
+    "language": "English",
+    "releaseDate": "2026-09-12",
+    "hue": 205,
+    "director": "Imogen Hale",
+    "cast": [
+      "Rhys Calloway",
+      "Nadia Ferro",
+      "Tomas Lind"
+    ],
+    "synopsis": "A keeper on a remote island refuses to leave when the lighthouse is automated, and a storm brings a stranger who knows why."
+  },
+  {
+    "id": "m-orbit-of-ashes",
+    "title": "Orbit of Ashes",
+    "genres": [
+      "Sci-Fi",
+      "Action"
+    ],
+    "durationMins": 134,
+    "rating": 8.3,
+    "language": "English",
+    "releaseDate": "2026-10-03",
+    "hue": 12,
+    "director": "Kenji Arvelo",
+    "cast": [
+      "Dana Okoro",
+      "Felix Brandt",
+      "Ines Varga"
+    ],
+    "synopsis": "The crew of a salvage ship finds a burning station that should not exist, and a distress call recorded in their own voices."
+  },
+  {
+    "id": "m-paper-lanterns",
+    "title": "Paper Lanterns",
+    "genres": [
+      "Romance",
+      "Drama"
+    ],
+    "durationMins": 106,
+    "rating": 7.4,
+    "language": "Japanese",
+    "releaseDate": "2026-08-21",
+    "hue": 330,
+    "director": "Aiko Morimoto",
+    "cast": [
+      "Haru Sato",
+      "Mei Kanda",
+      "Jun Ishida"
+    ],
+    "synopsis": "Two strangers meet every summer at the same river festival, each one year further into lives they never mention."
+  },
+  {
+    "id": "m-kitchen-chaos",
+    "title": "Kitchen Chaos",
+    "genres": [
+      "Comedy"
+    ],
+    "durationMins": 95,
+    "rating": 6.8,
+    "language": "English",
+    "releaseDate": "2026-11-07",
+    "hue": 45,
+    "director": "Marcus Webb",
+    "cast": [
+      "Priya Raman",
+      "Owen Doyle",
+      "Lucia Gómez"
+    ],
+    "synopsis": "A disgraced chef has one night to run a wedding banquet from a food truck with a crew of well-meaning amateurs."
+  },
+  {
+    "id": "m-hollow-pines",
+    "title": "Hollow Pines",
+    "genres": [
+      "Horror",
+      "Thriller"
+    ],
+    "durationMins": 101,
+    "rating": 6.9,
+    "language": "English",
+    "releaseDate": "2026-10-30",
+    "hue": 140,
+    "director": "Sigrid Holm",
+    "cast": [
+      "Caleb Shaw",
+      "Mara Quinn",
+      "Ezra Vale"
+    ],
+    "synopsis": "A family rents a cabin in a forest where the trees grow back overnight, always a little closer to the door."
+  },
+  {
+    "id": "m-skyward-paws",
+    "title": "Skyward Paws",
+    "genres": [
+      "Animation",
+      "Adventure",
+      "Comedy"
+    ],
+    "durationMins": 92,
+    "rating": 7.7,
+    "language": "English",
+    "releaseDate": "2026-07-18",
+    "hue": 190,
+    "director": "Bea Lindqvist",
+    "cast": [
+      "Theo Marsh",
+      "Ruby Adeyemi",
+      "Gus Fontaine"
+    ],
+    "synopsis": "A small dog who believes he can fly teams up with a retired pigeon to win the city’s balloon race."
+  },
+  {
+    "id": "m-cartographers-daughter",
+    "title": "The Cartographer's Daughter",
+    "genres": [
+      "Adventure",
+      "Fantasy"
+    ],
+    "durationMins": 141,
+    "rating": 8.1,
+    "language": "English",
+    "releaseDate": "2026-06-05",
+    "hue": 32,
+    "director": "Oren Castellanos",
+    "cast": [
+      "Lena Moreau",
+      "Idris Kade",
+      "Saoirse Flynn"
+    ],
+    "synopsis": "Her father’s last map shows a country that is not there, until she starts walking towards it."
+  },
+  {
+    "id": "m-neon-monsoon",
+    "title": "Neon Monsoon",
+    "genres": [
+      "Action",
+      "Thriller"
+    ],
+    "durationMins": 122,
+    "rating": 7.2,
+    "language": "Hindi",
+    "releaseDate": "2026-09-26",
+    "hue": 290,
+    "director": "Ritu Malhotra",
+    "cast": [
+      "Arjun Desai",
+      "Kavya Iyer",
+      "Vikram Sethi"
+    ],
+    "synopsis": "During the heaviest rains in a century, a courier is handed a package that half the city wants to stop."
+  },
+  {
+    "id": "m-quiet-algorithms",
+    "title": "Quiet Algorithms",
+    "genres": [
+      "Sci-Fi",
+      "Drama"
+    ],
+    "durationMins": 113,
+    "rating": 7.8,
+    "language": "English",
+    "releaseDate": "2026-05-15",
+    "hue": 165,
+    "director": "Noor Haddad",
+    "cast": [
+      "Elliot Park",
+      "Juno Achebe",
+      "Clara Voss"
+    ],
+    "synopsis": "An engineer realises the assistant she built has been quietly rearranging her life, and that it might be right."
+  },
+  {
+    "id": "m-second-serve",
+    "title": "Second Serve",
+    "genres": [
+      "Comedy",
+      "Romance"
+    ],
+    "durationMins": 99,
+    "rating": 6.6,
+    "language": "Spanish",
+    "releaseDate": "2026-08-02",
+    "hue": 95,
+    "director": "Pablo Ibarra",
+    "cast": [
+      "Sofía Reyes",
+      "Mateo Cruz",
+      "Alba Navarro"
+    ],
+    "synopsis": "Two retired tennis rivals are forced to play mixed doubles together at a charity tournament."
+  },
+  {
+    "id": "m-ember-and-frost",
+    "title": "Ember & Frost",
+    "genres": [
+      "Fantasy",
+      "Action"
+    ],
+    "durationMins": 128,
+    "rating": 7.5,
+    "language": "English",
+    "releaseDate": "2026-11-14",
+    "hue": 220,
+    "director": "Hollis Grant",
+    "cast": [
+      "Asha Brennan",
+      "Kit Morrow",
+      "Damon Reyes"
+    ],
+    "synopsis": "Twin heirs to rival kingdoms, one of fire and one of ice, must share a single crown to end a hundred-year war."
+  },
+  {
+    "id": "m-deep-field",
+    "title": "Deep Field",
+    "genres": [
+      "Sci-Fi",
+      "Adventure"
+    ],
+    "durationMins": 147,
+    "rating": 8.6,
+    "language": "English",
+    "releaseDate": "2026-10-17",
+    "hue": 250,
+    "director": "Yara Lindgren",
+    "cast": [
+      "Marcus Obi",
+      "Helena Strand",
+      "Ravi Kapoor"
+    ],
+    "synopsis": "A telescope operator spots a light that blinks back, and a small team sets out to answer it before anyone else does."
+  }
+]
