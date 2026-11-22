@@ -1,0 +1,57 @@
+[project]
+name = "movies-api"
+version = "0.1.0"
+description = "FastAPI practice backend for the Movies MFE"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]==0.165.0",
+    "pydantic-settings==2.16.3",
+    "tzdata==2026.6",
+]
+
+[project.optional-dependencies]
+db = [
+    "sqlalchemy[asyncio]==2.1.9",
+    "greenlet==3.5.6",
+    "aiosqlite==0.22.1",
+    "alembic==1.20.1",
+]
+dev = [
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.6",
+    "mypy==2.4.1",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+markers = [
+    "sql: runs against the SQLite backend",
+    "backends(*names): limit a test to these storage backends (default: both)",
+    "slow: slower tests",
+]
+
+[tool.coverage.run]
+# Python 3.12+ monitoring. The C tracer is blocked by Smart App Control, and the Python tracer is 4x slower.
+core = "sysmon"
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true

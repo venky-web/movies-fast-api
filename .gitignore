@@ -221,3 +221,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.venv/
+.env
+uploads/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.coverage
+htmlcov/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.claude/
