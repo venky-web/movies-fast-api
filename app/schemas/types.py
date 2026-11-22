@@ -1,19 +1,23 @@
 """Annotated types shared by the schemas."""
 
-from datetime import UTC, datetime
+from datetime import MAXYEAR, MINYEAR, UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Annotated
 
-from pydantic import AfterValidator, AwareDatetime, Field, PlainSerializer, StringConstraints
+from pydantic import AfterValidator, AwareDatetime, Field, PlainSerializer, StringConstraints, WithJsonSchema
 
 CENT = Decimal("0.01")
 
 
 def to_utc(value: datetime) -> datetime:
     try:
-        return value.astimezone(UTC)
+        utc = value.astimezone(UTC)
     except OverflowError as exc:  # only ValueError becomes a validation error; anything else is a 500
         raise ValueError("Date is out of range") from exc
+    # A year of slack at both ends, so that converting to the theater's time zone can't overflow either.
+    if not MINYEAR < utc.year < MAXYEAR:
+        raise ValueError("Date is out of range")
+    return utc
 
 
 def to_js_iso(value: datetime) -> str:
@@ -36,6 +40,8 @@ UtcDatetime = Annotated[
     AwareDatetime,  # naive datetimes are rejected
     AfterValidator(to_utc),
     PlainSerializer(to_js_iso, return_type=str, when_used="json"),
+    # The serializer's `str` would lose the format in the response schemas.
+    WithJsonSchema({"type": "string", "format": "date-time"}),
 ]
 
 # Pydantic serialises Decimal as a JSON *string* by default; the contract needs a number.

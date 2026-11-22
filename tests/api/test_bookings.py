@@ -3,7 +3,14 @@ import asyncio
 import pytest
 
 from tests.conftest import TEST_NOW
-from tests.helpers import booking_request, first_future, free_seats, showtimes, stored_showtime
+from tests.helpers import (
+    booking_request,
+    first_future,
+    free_seats,
+    pause_before_write,
+    showtimes,
+    stored_showtime,
+)
 from tests.stored import stored
 
 
@@ -65,10 +72,10 @@ async def pause_for_io() -> None:
 @pytest.mark.anyio
 class TestConcurrency:
     @pytest.mark.backends("memory")  # in SQL the unique constraint prevents it (tests/api/test_sql.py)
-    async def test_race_without_the_lock_double_books(self, app, aclient):
+    async def test_race_without_the_lock_double_books(self, app, aclient, monkeypatch):
         """The bug the lock fixes: both requests pass the check before either one writes."""
         app.state.locks.enabled = False
-        app.state.booking_pause = pause_for_io
+        pause_before_write(monkeypatch, app, pause_for_io)
         showtime = first_future(showtimes(app), TEST_NOW)
         body = booking_request(showtime, free_seats(showtime)[:2])
 
@@ -77,8 +84,8 @@ class TestConcurrency:
         assert [r.status_code for r in responses] == [201, 201]
         assert len(stored(app).bookings()) == 2  # the same seats were sold twice
 
-    async def test_lock_gives_one_201_and_one_409(self, app, aclient):
-        app.state.booking_pause = pause_for_io
+    async def test_lock_gives_one_201_and_one_409(self, app, aclient, monkeypatch):
+        pause_before_write(monkeypatch, app, pause_for_io)
         showtime = first_future(showtimes(app), TEST_NOW)
         body = booking_request(showtime, free_seats(showtime)[:2])
 
@@ -87,8 +94,8 @@ class TestConcurrency:
         assert sorted(r.status_code for r in responses) == [201, 409]
         assert len(stored(app).bookings()) == 1
 
-    async def test_concurrent_cancel_and_create_keep_booked_seats_consistent(self, app, aclient):
-        app.state.booking_pause = pause_for_io
+    async def test_concurrent_cancel_and_create_keep_booked_seats_consistent(self, app, aclient, monkeypatch):
+        pause_before_write(monkeypatch, app, pause_for_io)
         showtime = first_future(showtimes(app), TEST_NOW)
         seats = free_seats(showtime)
         original = set(showtime.booked_seats)

@@ -1,10 +1,30 @@
 """Test helpers, ported from `<mfe>/testing/test-helpers.ts`."""
 
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 
 from app.domain.rules import seat_grid
+from app.repositories.memory import MemoryShowtimeRepo
 from app.schemas.showtime import ShowtimeRecord
 from tests.stored import stored
+
+
+def pause_before_write(monkeypatch, app, pause: Callable[[], Awaitable[None]]) -> None:
+    """Stands in for I/O between "check the seats" and "write": both booking and cancelling save the showtime
+    as their first write, right after their checks."""
+    if app.state.settings.storage_backend == "sql":
+        from app.repositories.sql.repos import SqlShowtimeRepo
+
+        repo: type = SqlShowtimeRepo
+    else:
+        repo = MemoryShowtimeRepo
+    save = repo.save
+
+    async def paused_save(self, showtime):
+        await pause()
+        await save(self, showtime)
+
+    monkeypatch.setattr(repo, "save", paused_save)
 
 
 def showtimes(app) -> list[ShowtimeRecord]:

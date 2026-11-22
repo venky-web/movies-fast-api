@@ -4,11 +4,12 @@ import logging
 import math
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any
+from typing import Any, NamedTuple
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic.json_schema import SkipJsonSchema
 from pydantic_core import PydanticCustomError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -19,6 +20,9 @@ log = logging.getLogger(__name__)
 # Error type used by our own validators. The handler shows their message as-is (no field prefix).
 BUSINESS_RULE = "business_rule"
 LOCATION_PREFIXES = {"body", "query", "path", "header", "cookie"}
+# Real bodies are 3 levels deep. An echo of deeper input is cut: at about 100 levels the serialiser gives up,
+# which turned a 211-byte request into a 500.
+MAX_ECHO_DEPTH = 16
 
 
 class ApiErrorCode(StrEnum):
@@ -42,9 +46,113 @@ class ApiErrorCode(StrEnum):
 
 
 class ApiError(CamelModel):
+    """The body of every error response."""
+
     code: ApiErrorCode
     message: str
+    details: dict[str, Any] | SkipJsonSchema[None] = None  # left out when empty, never null
+
+
+class ErrorDoc(NamedTuple):
+    status: int
+    when: str
+    message: str
     details: dict[str, Any] | None = None
+
+    def example(self, code: ApiErrorCode) -> dict[str, Any]:
+        body = ApiError(code=code, message=self.message, details=self.details)
+        return body.model_dump(mode="json", exclude_none=True)
+
+
+# The one catalogue of errors behind `/docs`. A code has exactly one status.
+ERROR_DOCS: dict[ApiErrorCode, ErrorDoc] = {
+    ApiErrorCode.BAD_REQUEST: ErrorDoc(
+        400, "The body could not be read, or a needed `userId` is missing", "The userId is required"
+    ),
+    ApiErrorCode.VALIDATION: ErrorDoc(
+        400,
+        "The input is invalid or breaks a rule",
+        "Select between 1 and 6 seats",
+        {
+            "errors": [
+                {
+                    "type": BUSINESS_RULE,
+                    "loc": ["body", "seats"],
+                    "msg": "Select between 1 and 6 seats",
+                    "input": [],
+                }
+            ]
+        },
+    ),
+    ApiErrorCode.NOT_FOUND: ErrorDoc(
+        404, "It does not exist, or is not visible to you", 'Movie "m-nope" not found'
+    ),
+    ApiErrorCode.SEATS_TAKEN: ErrorDoc(
+        409,
+        "Some seats are already booked",
+        "Seats no longer available: A1, A2",
+        {"takenSeats": ["A1", "A2"]},
+    ),
+    ApiErrorCode.SHOWTIME_STARTED: ErrorDoc(
+        409, "The showtime has started", "This showtime has already started"
+    ),
+    ApiErrorCode.ALREADY_CANCELLED: ErrorDoc(
+        409, "It is already cancelled", "This booking is already cancelled"
+    ),
+    ApiErrorCode.SIMULATED_FAILURE: ErrorDoc(
+        503, "The demo `failureRate` struck", "Simulated server failure (see demo tools)"
+    ),
+    ApiErrorCode.UNAUTHORIZED: ErrorDoc(
+        401, "The admin key is missing or wrong", "A valid X-Admin-Key header is required"
+    ),
+    ApiErrorCode.METHOD_NOT_ALLOWED: ErrorDoc(
+        405, "The path exists, the method doesn't", "Method Not Allowed"
+    ),
+    ApiErrorCode.ALREADY_EXISTS: ErrorDoc(409, "The id is in use", 'Movie "m-deep-field" already exists'),
+    ApiErrorCode.MOVIE_HAS_BOOKINGS: ErrorDoc(
+        409,
+        "Upcoming showtimes of the movie have confirmed bookings",
+        'Movie "m-deep-field" has bookings for upcoming showtimes',
+    ),
+    ApiErrorCode.SHOWTIME_HAS_BOOKINGS: ErrorDoc(
+        409, "Bookings reference the showtime", 'Showtime "st-m-deep-field-20350601-1900" has bookings'
+    ),
+    ApiErrorCode.LAYOUT_CONFLICT: ErrorDoc(
+        409,
+        "Booked seats would fall outside the layout",
+        "Booked seats would fall outside the layout: H1",
+        {"outsideSeats": ["H1"]},
+    ),
+    ApiErrorCode.PAYLOAD_TOO_LARGE: ErrorDoc(413, "The file is over 2 MB", "A poster can be at most 2 MB"),
+    ApiErrorCode.UNSUPPORTED_MEDIA_TYPE: ErrorDoc(
+        415,
+        "Not a PNG, JPEG, WebP or SVG, or the content type doesn't match",
+        "A poster must be a PNG, JPEG, WebP or SVG file with a matching content type",
+    ),
+    ApiErrorCode.INTERNAL: ErrorDoc(
+        500,
+        "An unexpected error",
+        "Something went wrong on the server",
+        {"requestId": "5f1c0a9e2b7d4c3a8e6f1b2d3c4a5e6f"},
+    ),
+}
+
+
+def error_responses(*codes: ApiErrorCode) -> dict[int | str, dict[str, Any]]:
+    """For `responses=`: the route's own errors. `app/api/openapi.py` adds the ones every route can have."""
+    responses: dict[int | str, dict[str, Any]] = {}
+    for code in codes:
+        doc = ERROR_DOCS[code]
+        response = responses.setdefault(
+            doc.status,
+            {"model": ApiError, "description": doc.when, "content": {"application/json": {"examples": {}}}},
+        )
+        response["content"]["application/json"]["examples"][code.value] = {"value": doc.example(code)}
+    return responses
+
+
+NOT_FOUND_RESPONSE = error_responses(ApiErrorCode.NOT_FOUND)
+UNAUTHORIZED_RESPONSE = error_responses(ApiErrorCode.UNAUTHORIZED)
 
 
 class AppError(Exception):
@@ -104,21 +212,25 @@ def format_location(loc: tuple[int | str, ...]) -> str:
 def validation_message(error: dict[str, Any]) -> str:
     if error.get("type") == BUSINESS_RULE:
         return str(error["msg"])
+    if error.get("type") == "json_invalid":  # its location is a character position, not a field
+        return f"Request body: {error['msg']}"
     path = format_location(tuple(error.get("loc", ())))
     return f"{path}: {error['msg']}" if path else f"Request body: {error['msg']}"
 
 
-def json_safe(value: Any) -> Any:
+def json_safe(value: Any, depth: int = 0) -> Any:
     """Errors echo the client's input, which need not be JSON-serialisable.
 
     `jsonable_encoder` is not enough: it decodes bytes as UTF-8, keeps `inf` and keeps lone surrogates,
     and each of those makes the error response itself fail with a 500.
     """
+    if depth > MAX_ECHO_DEPTH:
+        return "<nested too deeply>"
     match value:
         case dict():
-            return {json_safe(str(k)): json_safe(v) for k, v in value.items()}
+            return {json_safe(str(k)): json_safe(v, depth + 1) for k, v in value.items()}
         case list() | tuple():
-            return [json_safe(v) for v in value]
+            return [json_safe(v, depth + 1) for v in value]
         case str():
             return value.encode("utf-8", "backslashreplace").decode("utf-8")
         case bytes():

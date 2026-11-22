@@ -13,6 +13,7 @@ from sqlalchemy import delete, insert, select, text, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import seed
 from app.main import create_app
 from app.repositories.sql import engine
 from app.repositories.sql.models import MovieRow, ShowtimeRow
@@ -22,7 +23,14 @@ from app.schemas.events import BookingCreated
 from app.schemas.movie import MOVIE_EXAMPLE
 from app.services.locks import CATALOG_LOCK
 from tests.conftest import ADMIN_KEY, TEST_NOW
-from tests.helpers import booking_request, first_future, free_seats, showtimes, stored_showtime
+from tests.helpers import (
+    booking_request,
+    first_future,
+    free_seats,
+    pause_before_write,
+    showtimes,
+    stored_showtime,
+)
 from tests.stored import stored
 
 pytestmark = pytest.mark.backends("sql")
@@ -82,7 +90,7 @@ class RecordingPublisher:
 
 @pytest.mark.anyio
 class TestConstraint:
-    async def test_prevents_double_booking_without_any_lock(self, app, aclient):
+    async def test_prevents_double_booking_without_any_lock(self, app, aclient, monkeypatch):
         app.state.locks.enabled = False
         publisher = app.state.publisher = RecordingPublisher()
         both_checked = asyncio.Barrier(2)
@@ -90,7 +98,7 @@ class TestConstraint:
         async def pause():  # both have seen the seats free before either one writes
             await asyncio.wait_for(both_checked.wait(), 5)
 
-        app.state.booking_pause = pause
+        pause_before_write(monkeypatch, app, pause)
         showtime = first_future(showtimes(app), TEST_NOW)
         seats = free_seats(showtime)[:2]
         body = booking_request(showtime, seats)
@@ -105,7 +113,7 @@ class TestConstraint:
         assert publisher.calls == [("created", won.json()["id"])]
         assert [email.booking_id for email in stored(app).outbox()] == [won.json()["id"]]
 
-    async def test_reports_only_the_seats_that_were_really_taken(self, app, aclient):
+    async def test_reports_only_the_seats_that_were_really_taken(self, app, aclient, monkeypatch):
         app.state.locks.enabled = False
         showtime = first_future(showtimes(app), TEST_NOW)
         shared, mine, theirs = free_seats(showtime)[:3]
@@ -114,7 +122,7 @@ class TestConstraint:
         async def pause():
             await asyncio.wait_for(both_checked.wait(), 5)
 
-        app.state.booking_pause = pause
+        pause_before_write(monkeypatch, app, pause)
 
         responses = await asyncio.gather(
             aclient.post("/api/bookings", json=booking_request(showtime, [shared, mine])),
@@ -557,3 +565,10 @@ async def test_writers_queue_in_process_instead_of_starving_on_sqlites_busy_time
             )
 
     assert [r.status_code for r in responses] == [201, 201, 201]
+
+
+@pytest.mark.anyio
+async def test_the_seed_command_seeds_once_and_resets(settings, frozen_clock):
+    assert await seed.run(settings, frozen_clock, reset=False) == "Seeded the database."
+    assert "already has data" in await seed.run(settings, frozen_clock, reset=False)
+    assert await seed.run(settings, frozen_clock, reset=True) == "Reset and seeded the database."

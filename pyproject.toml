@@ -5,6 +5,10 @@ description = "FastAPI practice backend for the Movies MFE"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]==0.165.0",
+    # Pinned although FastAPI brings them: behaviour this app relies on changes between their versions.
+    "starlette==1.10.0",
+    "pydantic==2.14.4",
+    "uvicorn==0.54.0",
     "pydantic-settings==2.16.3",
     "tzdata==2026.6",
 ]

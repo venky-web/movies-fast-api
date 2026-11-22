@@ -4,10 +4,10 @@ from pydantic import model_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.errors import business_rule
-from app.schemas.base import CamelModel
+from app.schemas.base import RequestModel
 
 
-class PatchModel(CamelModel):
+class PatchModel(RequestModel):
     """Base for PATCH bodies.
 
     Fields are optional so that they can be *left out*. That would also let `{"title": null}` through, and

@@ -12,6 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import AuditDep
+from app.api.openapi import DESCRIPTION, TAGS, install_openapi, operation_id
 from app.api.routers import admin, bookings, meta, movies, posters, realtime, showtimes, users
 from app.background import refresh_loop, refresh_showtimes
 from app.core.clock import Clock, SystemClock
@@ -134,7 +135,9 @@ def create_app(
     app = FastAPI(
         title="Movies API",
         version="0.1.0",
-        description="FastAPI practice backend for the Movies MFE.",
+        description=DESCRIPTION,
+        openapi_tags=TAGS,
+        generate_unique_id_function=operation_id,  # set before including routers, which inherit it
         lifespan=lifespan,
     )
     app.state.settings = settings or get_settings()
@@ -149,6 +152,7 @@ def create_app(
     app.include_router(meta.router)
     for api_router in (
         movies.router,
+        movies.legacy_router,
         showtimes.router,
         users.router,
         posters.router,
@@ -163,6 +167,7 @@ def create_app(
     app.mount(
         "/uploads", StaticFiles(directory=app.state.settings.uploads_dir, check_dir=False), name="uploads"
     )
+    install_openapi(app)
     return app
 
 

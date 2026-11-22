@@ -2,8 +2,9 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, computed_field
 from pydantic.config import JsonDict
+from pydantic.json_schema import SkipJsonSchema
 
-from app.schemas.base import CamelModel
+from app.schemas.base import CamelModel, RequestModel
 from app.schemas.patch import PatchModel
 from app.schemas.types import Money, Price, Text, UtcDatetime
 
@@ -27,7 +28,7 @@ class Showtime(CamelModel):
 
 
 class ShowtimeRecord(Showtime):
-    """Stored showtime. `manual` showtimes are never touched by the daily window refresh."""
+    """A showtime as admins see it. The daily refresh never touches `manual` showtimes."""
 
     source: Literal["generated", "manual"] = "generated"
 
@@ -37,7 +38,7 @@ SeatsPerRow = Annotated[int, Field(ge=1, le=30)]
 
 SHOWTIME_EXAMPLE: JsonDict = {
     "movieId": "m-deep-field",
-    "startsAt": "2027-01-15T19:00:00Z",
+    "startsAt": "2035-06-01T19:00:00Z",
     "screen": "Screen 2",
     "price": 12.5,
     "rows": 8,
@@ -45,8 +46,8 @@ SHOWTIME_EXAMPLE: JsonDict = {
 }
 
 
-class ShowtimeCreate(CamelModel):
-    """Shape and ranges only. "Not in the past" needs the clock, so it is checked in the service."""
+class ShowtimeCreate(RequestModel):
+    """A new showtime. `startsAt` must be in the future."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [SHOWTIME_EXAMPLE]})
 
@@ -59,9 +60,13 @@ class ShowtimeCreate(CamelModel):
 
 
 class ShowtimeUpdate(PatchModel):
-    movie_id: str | None = None
-    starts_at: UtcDatetime | None = None
-    screen: Text | None = None
-    price: Price | None = None
-    rows: Rows | None = None
-    seats_per_row: SeatsPerRow | None = None
+    """Send only the fields to change. A field can be left out, but not set to null."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"price": 11.5, "screen": "Screen 4"}]})
+
+    movie_id: str | SkipJsonSchema[None] = None
+    starts_at: UtcDatetime | SkipJsonSchema[None] = None
+    screen: Text | SkipJsonSchema[None] = None
+    price: Price | SkipJsonSchema[None] = None
+    rows: Rows | SkipJsonSchema[None] = None
+    seats_per_row: SeatsPerRow | SkipJsonSchema[None] = None

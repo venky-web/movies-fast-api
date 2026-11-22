@@ -4,6 +4,7 @@
 - `@pytest.mark.backends("memory")` limits a test to the backends it is about.
 """
 
+import os
 import random
 import shutil
 from collections.abc import Iterator
@@ -32,6 +33,14 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     chosen = marker.args if marker else BACKENDS
     params = [pytest.param(b, marks=pytest.mark.sql if b == "sql" else ()) for b in chosen]
     metafunc.parametrize("backend", params, indirect=True)
+
+
+@pytest.fixture(autouse=True)
+def no_settings_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The README has people set `STORAGE_BACKEND` and friends in their shell. Keep that out of the tests."""
+    for name in {*os.environ}:
+        if name.lower() in Settings.model_fields:
+            monkeypatch.delenv(name)
 
 
 @pytest.fixture

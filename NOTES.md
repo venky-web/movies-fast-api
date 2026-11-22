@@ -1,5 +1,35 @@
 # Learning notes
 
+## What was surprising, phase by phase
+
+**0. Setup.** Installing proves nothing. Every package installed cleanly, and seven phases later one of them
+turned out to be blocked at import by Windows Smart App Control. Import and run what you install.
+
+**1. Catalogue.** Response models do a lot of work: returning a record with internal fields is safe, because
+`response_model` filters them. Decimal becomes a JSON string unless told otherwise.
+
+**2. Errors and dependencies.** The code after a dependency's `yield` runs after the response has been sent, and
+a dependency that swallows an exception breaks the response. Both only show when measured.
+
+**3. Bookings.** There is no race until something really awaits between check and write. And a lock doesn't
+help when two different strings (`A2`, `A02`) mean the same seat.
+
+**4. Admin and files.** The body is parsed before any dependency runs, so a key check in a dependency still
+receives a 20 MB upload from a stranger. PATCH fields that are optional also accept null.
+
+**5. Middleware and lifespan.** The 500 handler runs outside all middleware, app logs are invisible until
+configured, and lifespan shutdown starts too late to end an open stream.
+
+**6. Real-time.** The interesting bugs only exist on a real server: a close code lost to a race in 14 % of
+shutdowns, a doubled heartbeat, an event that browsers ignore because it has no data.
+
+**7. Database.** The textbook designs were the broken ones: commit in a dependency, modern SQLite transactions
+and saving a list all lost or duplicated data under concurrency. Decide when a lock is released first.
+
+**8. Polish.** 875 passing tests and 98 % coverage missed a 211-byte request that caused a 500 and a single
+character that broke the catalogue for everybody. A fuzzer found both in a minute, and comparing with the real
+fake backend found parity bugs that the ported tests never asked about.
+
 ## Versions (pinned 2026-11-21)
 
 The plan assumed Python 3.15.2, but only **Python 3.13.0** is installed on this machine. 3.13 has wheels for
@@ -275,3 +305,46 @@ That needs `Depends(get_uow, scope="function")`.
 
 - `pytest --cov` no longer needs coverage's blocked C tracer: `core = "sysmon"` uses Python's own monitoring.
   Both backends (875 tests) take about 4 minutes with coverage. `-m "not sql"` is the quick loop.
+
+## Phase 8
+
+### Found by fuzzing every operation (about 13,300 requests)
+
+- A body nested about 100 levels deep (211 bytes) was a 500: the error response echoes the input and the
+  serializer has a depth limit. The echo is now cut at 16 levels.
+- A plain `str` field accepts a lone surrogate. It was stored, and then every response containing it failed.
+  All request models derive from `RequestModel`, which rejects it.
+- `astimezone` overflows at the edges of the calendar. `UtcDatetime` keeps a year of slack.
+
+### Found by comparing with the real fake backend (103 scenarios)
+
+- `EmailStr` accepts `Ava <ava@example.com>` and silently keeps the address.
+- JavaScript's `trim()` and `.length` are not Python's `strip()` and `len()`.
+- The remaining differences are the Deviations list in the README.
+
+### OpenAPI
+
+- `responses=` can't remove the automatic 422. That takes a custom `app.openapi()`, which must work on a copy:
+  the generated schema contains the very dicts from the routers' `responses=`, shared by every app.
+- FastAPI documents extra responses in the route's own media type, so the event stream's 400 claimed to be
+  `text/event-stream`.
+- `PlainSerializer(return_type=str)` loses `format: date-time` (use `WithJsonSchema`). `X | None` says "nullable"
+  for fields that can only be left out (use `X | SkipJsonSchema[None]`). Query parameters have the same
+  problem (Swagger shows `string | (string | null)`), so `openapi()` strips null from them.
+- `generate_unique_id_function` must be on the app before routers are included. It also names the generated
+  `Body_...` schemas.
+- `deprecated=True` is shown on `GET /api/movie-list`, an alias that exists only to demonstrate it.
+- The conformance test triggers every documented (operation, status, code), which caught a documented error
+  that could not happen.
+- An example with a date is a time bomb: the showtime example would have turned invalid on 15 January 2027.
+
+### Test hygiene
+
+- `Settings(_env_file=None)` still reads environment variables, so the README's `$env:STORAGE_BACKEND` broke the
+  tests. They now clear those variables.
+- The Phase 3 pause hook is gone from the app. The race tests patch the repository instead.
+
+### A correction to Phase 7
+
+"The README works as written" was tested with `powershell -ExecutionPolicy RemoteSigned`, which hid that
+`Activate.ps1` is blocked under Windows' default policy. Test setup steps with no overrides.

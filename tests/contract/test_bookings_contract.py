@@ -195,3 +195,42 @@ class TestExtraParityRules:
 
     def test_unknown_user_has_no_bookings(self, client):
         assert client.get("/api/bookings", params={"userId": "u-nobody"}).json() == []
+
+
+class TestParityFoundByTheDifferentialTest:
+    """Differences from the real fake backend, found by sending both the same requests (Phase 8)."""
+
+    @pytest.mark.parametrize("email", ["Ava <ava@example.com>", "<ava@example.com>", "Ava<ava@example.com>"])
+    def test_a_display_name_is_not_an_email(self, app, client, email):
+        showtime = first_future(showtimes(app), TEST_NOW)
+        body = booking_request(showtime, free_seats(showtime)[:1], email=email)
+
+        assert failure(client.post("/api/bookings", json=body), 400)["message"] == "A valid email is required"
+
+    def test_name_length_counts_like_javascript(self, app, client):
+        showtime = first_future(showtimes(app), TEST_NOW)
+        emoji = chr(0x1F600)  # one code point, but `.length === 2` in JavaScript
+
+        assert book(client, booking_request(showtime, free_seats(showtime)[:1], customerName=emoji))
+
+    def test_trimming_works_like_javascript(self, app, client):
+        showtime = first_future(showtimes(app), TEST_NOW)
+        name = chr(0xFEFF) + "A"  # JavaScript's trim() removes a byte order mark, Python's strip() doesn't
+        body = booking_request(showtime, free_seats(showtime)[:1], customerName=name)
+
+        error = failure(client.post("/api/bookings", json=body), 400)
+        assert error["message"] == "A customer name of at least 2 characters is required"
+
+    def test_broken_json_has_a_readable_message(self, client):
+        response = client.post(
+            "/api/bookings", content=b"{oops", headers={"content-type": "application/json"}
+        )
+
+        assert failure(response, 400)["message"] == "Request body: JSON decode error"
+
+    def test_invalid_unicode_has_a_readable_message(self, client):
+        body = b'{"customerName": "Ava\\ud800"}'
+        response = client.post("/api/bookings", content=body, headers={"content-type": "application/json"})
+
+        messages = [e["msg"] for e in failure(response, 400)["details"]["errors"]]
+        assert "Text must be valid Unicode (no lone surrogates)" in messages

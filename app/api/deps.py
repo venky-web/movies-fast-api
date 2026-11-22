@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
-from fastapi import BackgroundTasks, Depends, Query, Request, Response, Security, WebSocket
+from fastapi import BackgroundTasks, Depends, Path, Query, Request, Response, Security, WebSocket
 from fastapi.routing import APIRoute
 from fastapi.security import APIKeyHeader
 
@@ -21,12 +21,19 @@ from app.realtime.sse import SSE_EVENT_TYPES
 from app.repositories.base import Repos
 from app.schemas.user import User
 from app.services.admin import AdminContext
-from app.services.bookings import BookingContext, no_pause
+from app.services.bookings import BookingContext
 from app.services.locks import Locks
 from app.services.notifications import EmailNotifier
 from app.storage import UnitOfWork
 
 log = logging.getLogger("app.audit")
+
+MovieIdPath = Annotated[str, Path(description="A movie id", examples=["m-deep-field"])]
+ShowtimeIdPath = Annotated[
+    str, Path(description="A showtime id, from `GET /api/movies/{movie_id}/showtimes`")
+]
+BookingIdPath = Annotated[str, Path(description="A booking id such as `BK-7Q2M4X`")]
+UserIdPath = Annotated[str, Path(description="A mock user id", examples=["u-ava"])]
 
 
 def get_config(request: Request) -> Settings:
@@ -117,7 +124,6 @@ def get_booking_context(
         rng=request.app.state.rng,
         notifier=notifier,
         publisher=uow.publisher,
-        pause=getattr(request.app.state, "booking_pause", None) or no_pause,
     )
 
 
@@ -187,7 +193,7 @@ class AdminRoute(APIRoute):
         return check_key_first
 
 
-async def get_user(user_id: str, repos: ReposDep) -> User:
+async def get_user(user_id: UserIdPath, repos: ReposDep) -> User:
     """Resolves the `{user_id}` path parameter to a user, or 404. Only `/api/users/{user_id}` uses it:
     the booking routes follow the fake backend's own rules (plan 3.3)."""
     user = await repos.users.get(user_id)
@@ -209,7 +215,7 @@ class Pagination:
     def __init__(
         self,
         limit: Annotated[int | None, Query(ge=1, le=100, description="Page size (max 100)")] = None,
-        offset: Annotated[int, Query(ge=0)] = 0,
+        offset: Annotated[int, Query(ge=0, description="How many matches to skip")] = 0,
     ) -> None:
         self.limit = limit
         self.offset = offset

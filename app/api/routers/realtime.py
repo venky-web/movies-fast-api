@@ -12,7 +12,12 @@ router = APIRouter(prefix="/api", tags=["realtime"])
 ws_router = APIRouter(prefix="/ws", tags=["realtime"])
 
 
-@router.get("/events", response_class=EventSourceResponse)
+@router.get(
+    "/events",
+    response_class=EventSourceResponse,
+    summary="Stream booking events (SSE)",
+    response_description="An event stream that stays open",
+)
 async def stream_events(
     subscription: EventSubscriptionDep,
     config: ConfigDep,
@@ -20,7 +25,10 @@ async def stream_events(
         int | None, Query(alias="maxEvents", ge=1, description="End the stream after this many events")
     ] = None,
 ) -> AsyncIterator[ServerSentEvent]:
-    """Server-Sent Events: `booking-created`, `booking-cancelled` (BookingDetails) and `demo-reset` (`{}`)."""
+    """Events: `booking-created`, `booking-cancelled` (BookingDetails) and `demo-reset` (`{}`).
+
+    The connection stays open: set `maxEvents` to try it from this page. Details are in the tag description.
+    """
     events = sse.event_stream(subscription, heartbeat=config.sse_heartbeat_seconds, max_events=max_events)
     async for item in events:
         yield item

@@ -4,8 +4,9 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field
 from pydantic.config import JsonDict
+from pydantic.json_schema import SkipJsonSchema
 
-from app.schemas.base import CamelModel
+from app.schemas.base import CamelModel, RequestModel
 from app.schemas.patch import PatchModel
 from app.schemas.types import Text, UtcDatetime
 
@@ -30,7 +31,7 @@ class MovieSort(StrEnum):
     DURATION = "duration"
 
 
-class Review(CamelModel):
+class Review(RequestModel):
     author: str
     stars: int = Field(ge=1, le=5)
     text: str
@@ -54,12 +55,12 @@ class Movie(CamelModel):
 
 
 class MovieRecord(Movie):
-    """Stored movie: the public fields plus internal ones that `response_model=Movie` filters out."""
+    """A movie as admins see it: the public fields plus `hue`, `source` and the deletion and upload state."""
 
     hue: int = Field(ge=0, le=359)
     source: Literal["seed", "admin"] = "seed"
-    deleted_at: UtcDatetime | None = None
-    uploaded_poster: str | None = None
+    deleted_at: UtcDatetime | SkipJsonSchema[None] = None  # admin responses leave it out when not set
+    uploaded_poster: str | SkipJsonSchema[None] = None
 
 
 # Ids end up in URLs and in upload file names, so no slashes, dots or other characters with a meaning there.
@@ -82,7 +83,7 @@ MOVIE_EXAMPLE: JsonDict = {
 }
 
 
-class MovieReplace(CamelModel):
+class MovieReplace(RequestModel):
     """Body of `PUT`: the id comes from the path.
 
     `reviews` defaults to empty. An omitted `hue` keeps the current one, because the public GET does not
@@ -109,14 +110,18 @@ class MovieCreate(MovieReplace):
 
 
 class MovieUpdate(PatchModel):
-    title: Text | None = None
-    genres: GenreList | None = None
-    duration_mins: Duration | None = None
-    rating: Rating | None = None
-    language: Text | None = None
-    synopsis: Text | None = None
-    release_date: date | None = None
-    director: Text | None = None
-    cast: list[Text] | None = None
-    reviews: list[Review] | None = None
-    hue: Hue | None = None
+    """Send only the fields to change. A field can be left out, but not set to null."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"title": "Deep Field: Redux", "rating": 8.9}]})
+
+    title: Text | SkipJsonSchema[None] = None
+    genres: GenreList | SkipJsonSchema[None] = None
+    duration_mins: Duration | SkipJsonSchema[None] = None
+    rating: Rating | SkipJsonSchema[None] = None
+    language: Text | SkipJsonSchema[None] = None
+    synopsis: Text | SkipJsonSchema[None] = None
+    release_date: date | SkipJsonSchema[None] = None
+    director: Text | SkipJsonSchema[None] = None
+    cast: list[Text] | SkipJsonSchema[None] = None
+    reviews: list[Review] | SkipJsonSchema[None] = None
+    hue: Hue | SkipJsonSchema[None] = None

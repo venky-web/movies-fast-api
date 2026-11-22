@@ -1,7 +1,6 @@
 """Booking logic: the same rules, check order and error codes as the fake backend (plan section 3.4)."""
 
 import random
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
@@ -72,10 +71,6 @@ class NoopPublisher:
         pass
 
 
-async def no_pause() -> None:
-    pass
-
-
 @dataclass
 class BookingContext:
     """Everything the booking service needs, assembled by the `get_booking_context` dependency."""
@@ -86,9 +81,6 @@ class BookingContext:
     rng: random.Random
     notifier: Notifier = field(default_factory=NoopNotifier)
     publisher: Publisher = field(default_factory=NoopPublisher)
-    # Awaited between "check seats" and "write". A no-op normally; the race-condition exercise sets it to
-    # `asyncio.sleep(0)` to stand in for real I/O (plan 5.4).
-    pause: Callable[[], Awaitable[None]] = no_pause
 
 
 def booking_not_found(booking_id: str) -> AppError:
@@ -167,8 +159,6 @@ async def create_booking(request: CreateBookingRequest, ctx: BookingContext) -> 
         if taken:
             raise seats_taken(taken)
 
-        await ctx.pause()
-
         seats = sort_seats(request.seats)
         booking = Booking(
             id=await new_booking_id(repos, ctx.rng),
@@ -230,8 +220,6 @@ async def cancel_booking(booking_id: str, user_id: str, ctx: BookingContext) -> 
                     ApiErrorCode.SHOWTIME_STARTED,
                     "Bookings cannot be cancelled after the showtime starts",
                 )
-
-        await ctx.pause()
 
         cancelled = booking.model_copy(update={"status": BookingStatus.CANCELLED, "cancelled_at": ctx.now})
         if showtime:
